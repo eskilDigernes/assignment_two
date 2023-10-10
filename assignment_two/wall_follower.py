@@ -96,8 +96,6 @@ class WallFollower(Node):
         
         self.take_action()
 
-
-
     def odom_callback(self, msg):
         # Update the current position of the robot
         self.curr_pos = msg.pose.pose.position

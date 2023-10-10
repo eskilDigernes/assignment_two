@@ -4,28 +4,44 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, Pose
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy # Ouality of Service (tune communication between nodes)
+import time
 
 class WallFollower(Node):
-
-    def __init__(self):
+    def __init__(self):    
+        print("Wall Follower Node Started 1")
         super().__init__('wall_follower')
-        
-        self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
+
+        # Define a QoS profile
+# Define QoS profile
+        qos = QoSProfile(depth=10, reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT)
+        print("Wall Follower Node Started 2")
+        # Use the custom QoS profile for the publisher
+        self.publisher_ = self.create_publisher(
+            Twist,
+            'cmd_vel', 10
+        )
+        print("Wall Follower Node Started 3")
+
+        # Use the custom QoS profile for the subscription to LaserScan messages
         self.subscription = self.create_subscription(
             LaserScan,
             'scan',
             self.listener_callback,
-            10)
-        self.subscription # prevent unused variable warning
+            qos_profile=qos
+        )
+        print("Wall Follower Node Started 4")
+        self.subscription  # prevent unused variable warning
 
+        # Use the custom QoS profile for the subscription to Odometry messages
         self.odom_subscription = self.create_subscription(
             Odometry,
             'odom',
-            self.odom_callback,
-            10)
-        self.odom_subscription
-
+            self.odom_callback, 10
+        )
+        print("Wall Follower Node Started 5")
+        #self.odom_subscription
+        
         # To store the initial and current position of the robot
         self.init_pos = None
         self.curr_pos = None
@@ -40,29 +56,31 @@ class WallFollower(Node):
             3: 'Turn left',
             4: 'Diagonally right',
             5: 'Diagonally left',
+
         }
         self.follow_dir = -1
+        print("Wall Follower Node Started 6")
 
-    def listener_callback(self, msg):
+    def listener_callback(self, msg:LaserScan):
         laser_range = np.array(msg.ranges)
         self.section = {
-            'front': min(np.concatenate((laser_range[0:45], laser_range[315:360]))),
-            'left': min(laser_range[45:135]),
-            'right': min(laser_range[225:315]),
+            'front': min(min(laser_range[198:]), min(laser_range[:29])),
+            'left': min(laser_range[29:86]),
+            'right': min(laser_range[141:199]),
         }
-
-        # logging distance
+        print("Wall Follower Node Started 7")
         self.get_logger().info(f'Front: {self.section["front"]:.2f} | Left: {self.section["left"]:.2f} | Right: {self.section["right"]:.2f}')
-
         self.bug_action()
-    
+
     def change_state(self, state):
+        print("Wall Follower Node Started 8")
         if state != self.state_:
             self.get_logger().info(f'State of Bot - [{state}] - {self.state_dict_[state]}')
             self.state_ = state
-
+        
 
     def bug_action(self):
+        print("Wall Follower Node Started 9")
         wall_detection_threshold = 1
         too_close_threshold = 0.3
         
@@ -94,24 +112,36 @@ class WallFollower(Node):
         else:
             self.change_state(2)  # Move ahead
         
+        
         self.take_action()
 
     def odom_callback(self, msg):
-        # Update the current position of the robot
-        self.curr_pos = msg.pose.pose.position
+        try:
+            print(f"{time.time()} Odom message received")
+            # Update the current position of the robot
+            self.curr_pos = msg.pose.pose.position
+        except Exception as e:
+            self.get_logger().error(f"Error in odom_callback: {str(e)}")
+
+        
+        
         
         if self.init_pos is None:
             # If it's the first reading, initialize the starting position
             self.init_pos = self.curr_pos
+            print("Wall Follower Node Started odom?")
+        
 
     def get_distance(self):
+        print("Wall Follower Node Started 11")
         # Calculate the distance between the initial and current position
         dx = self.curr_pos.x - self.init_pos.x
         dy = self.curr_pos.y - self.init_pos.y
         return np.sqrt(dx**2 + dy**2)
-
+        
 
     def take_action(self):
+        print("Wall Follower Node Started 12")
         # Initialize a Twist message
         velocity_msg = Twist()
         
@@ -143,36 +173,42 @@ class WallFollower(Node):
 
 
     def find_wall(self):
+        print("Wall Follower Node Started 13")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = 0.0
         return velocity
 
     def turn_left(self):
+        print("Wall Follower Node Started 14")
         velocity = Twist()
         velocity.linear.x = 0.0
         velocity.angular.z = 0.3
         return velocity
 
     def turn_right(self):
+        print("Wall Follower Node Started 15")
         velocity = Twist()
         velocity.linear.x = 0.0
         velocity.angular.z = -0.3
         return velocity
 
     def move_ahead(self):
+        print("Wall Follower Node Started 16")
         velocity = Twist()
         velocity.linear.x = 0.3
         velocity.angular.z = 0.0
         return velocity
 
     def move_diag_right(self):
+        print("Wall Follower Node Started 17")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = -0.3
         return velocity
 
     def move_diag_left(self):
+        print("Wall Follower Node Started 18")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = 0.3
@@ -180,6 +216,7 @@ class WallFollower(Node):
 
 
 def main(args=None):
+    print("Wall Follower Node Started 19")
     rclpy.init(args=args)
     
     wall_follower = WallFollower()

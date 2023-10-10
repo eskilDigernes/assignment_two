@@ -13,7 +13,6 @@ class WallFollower(Node):
         super().__init__('wall_follower')
 
         # Define a QoS profile
-# Define QoS profile
         qos = QoSProfile(depth=10, reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT)
         print("Wall Follower Node Started 2")
         # Use the custom QoS profile for the publisher

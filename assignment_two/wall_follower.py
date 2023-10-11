@@ -7,20 +7,26 @@ from nav_msgs.msg import Odometry
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy # Ouality of Service (tune communication between nodes)
 import time
 
+""" wall_follow_state determnines which side of the robot is closer to the wall. """
+""" wall_follow_state == -1: Initial state                                       """ 
+""" wall_follow_state == 0: Left side                                            """
+""" wall_follow_state, 1: Right side                                             """
+
+
 class WallFollower(Node):
     def __init__(self):    
-        print("Wall Follower Node Started 1")
+        #print("Wall Follower Node Started 1")
         super().__init__('wall_follower')
 
         # Define a QoS profile
         qos = QoSProfile(depth=10, reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT)
-        print("Wall Follower Node Started 2")
+        #print("Wall Follower Node Started 2")
         # Use the custom QoS profile for the publisher
         self.publisher_ = self.create_publisher(
             Twist,
             'cmd_vel', 10
         )
-        print("Wall Follower Node Started 3")
+        #print("Wall Follower Node Started 3")
 
         # Use the custom QoS profile for the subscription to LaserScan messages
         self.subscription = self.create_subscription(
@@ -29,7 +35,7 @@ class WallFollower(Node):
             self.listener_callback,
             qos_profile=qos
         )
-        print("Wall Follower Node Started 4")
+        #print("Wall Follower Node Started 4")
         self.subscription  # prevent unused variable warning
 
         # Use the custom QoS profile for the subscription to Odometry messages
@@ -38,7 +44,7 @@ class WallFollower(Node):
             'odom',
             self.odom_callback, 10
         )
-        print("Wall Follower Node Started 5")
+        #print("Wall Follower Node Started 5")
         #self.odom_subscription
         
         # To store the initial and current position of the robot
@@ -57,8 +63,8 @@ class WallFollower(Node):
             5: 'Diagonally left',
 
         }
-        self.follow_dir = -1
-        print("Wall Follower Node Started 6")
+        self.wall_follow_state = -1
+        #print("Wall Follower Node Started 6")
 
     def listener_callback(self, msg:LaserScan):
         laser_range = np.array(msg.ranges)
@@ -67,40 +73,41 @@ class WallFollower(Node):
             'left': min(laser_range[29:86]),
             'right': min(laser_range[141:199]),
         }
-        print("Wall Follower Node Started 7")
+        print(len(laser_range))
+        #print("Wall Follower Node Started 7")
         self.get_logger().info(f'Front: {self.section["front"]:.2f} | Left: {self.section["left"]:.2f} | Right: {self.section["right"]:.2f}')
         self.bug_action()
 
     def change_state(self, state):
-        print("Wall Follower Node Started 8")
+        #print("Wall Follower Node Started 8")
         if state != self.state_:
             self.get_logger().info(f'State of Bot - [{state}] - {self.state_dict_[state]}')
             self.state_ = state
         
 
     def bug_action(self):
-        print("Wall Follower Node Started 9")
-        wall_detection_threshold = 1
-        too_close_threshold = 0.3
+        #print("Wall Follower Node Started 9")
+        wall_threshold = 1
+        min_threshold = 0.3
         
-        if self.section['front'] < too_close_threshold:
+        if self.section['front'] < min_threshold:
             if self.section['left'] < self.section['right']:
                 self.change_state(1)  # Turn right if left side is closer to the wall
             else:
                 self.change_state(3)  # Turn left if right side is closer to the wall
-        elif self.section['left'] < too_close_threshold and self.follow_dir != 1:
+        elif self.section['left'] < min_threshold and self.wall_follow_state != 1:
             self.change_state(1)  # Turn right when too close to a wall on the left
-        elif self.section['right'] < too_close_threshold and self.follow_dir != 0:
+        elif self.section['right'] < min_threshold and self.wall_follow_state != 0:
             self.change_state(3)  # Turn left when too close to a wall on the right
-        elif self.section['front'] > wall_detection_threshold and self.section['left'] > wall_detection_threshold and self.section['right'] > wall_detection_threshold:
+        elif self.section['front'] > wall_threshold and self.section['left'] > wall_threshold and self.section['right'] > wall_threshold:
             self.change_state(0)  # Find wall when there's no wall detected in all directions
-        elif self.follow_dir == -1:  # Initial state
-            if self.section['left'] < wall_detection_threshold :
+        elif self.wall_follow_state == -1:  # Initial state
+            if self.section['left'] < wall_threshold :
                 self.change_state(1)  # Turn right if a wall is detected on the left
-                self.follow_dir = 0
-            elif self.section['right'] < wall_detection_threshold :
+                self.wall_follow_state = 0
+            elif self.section['right'] < wall_threshold :
                 self.change_state(3)  # Turn left if a wall is detected on the right
-                self.follow_dir = 1
+                self.wall_follow_state = 1
             else:
                 self.change_state(2)  # Move ahead if no wall is detected
         elif 0.3 < self.section['front'] < 0.6:  # If somewhat close to a front wall but not too close
@@ -116,7 +123,7 @@ class WallFollower(Node):
 
     def odom_callback(self, msg):
         try:
-            print(f"{time.time()} Odom message received")
+            #print(f"{time.time()} Odom message received")
             # Update the current position of the robot
             self.curr_pos = msg.pose.pose.position
         except Exception as e:
@@ -132,7 +139,7 @@ class WallFollower(Node):
         
 
     def get_distance(self):
-        print("Wall Follower Node Started 11")
+        #print("Wall Follower Node Started 11")
         # Calculate the distance between the initial and current position
         dx = self.curr_pos.x - self.init_pos.x
         dy = self.curr_pos.y - self.init_pos.y
@@ -140,7 +147,7 @@ class WallFollower(Node):
         
 
     def take_action(self):
-        print("Wall Follower Node Started 12")
+        #print("Wall Follower Node Started 12")
         # Initialize a Twist message
         velocity_msg = Twist()
         
@@ -170,44 +177,44 @@ class WallFollower(Node):
         # Publish the velocity message
         self.publisher_.publish(velocity_msg)
 
-
+    # State machine actions
     def find_wall(self):
-        print("Wall Follower Node Started 13")
+        #print("Wall Follower Node Started 13")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = 0.0
         return velocity
 
     def turn_left(self):
-        print("Wall Follower Node Started 14")
+        #print("Wall Follower Node Started 14")
         velocity = Twist()
         velocity.linear.x = 0.0
         velocity.angular.z = 0.3
         return velocity
 
     def turn_right(self):
-        print("Wall Follower Node Started 15")
+        #print("Wall Follower Node Started 15")
         velocity = Twist()
         velocity.linear.x = 0.0
         velocity.angular.z = -0.3
         return velocity
 
     def move_ahead(self):
-        print("Wall Follower Node Started 16")
+        #print("Wall Follower Node Started 16")
         velocity = Twist()
         velocity.linear.x = 0.3
         velocity.angular.z = 0.0
         return velocity
 
     def move_diag_right(self):
-        print("Wall Follower Node Started 17")
+        #print("Wall Follower Node Started 17")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = -0.3
         return velocity
 
     def move_diag_left(self):
-        print("Wall Follower Node Started 18")
+        #print("Wall Follower Node Started 18")
         velocity = Twist()
         velocity.linear.x = 0.1
         velocity.angular.z = 0.3
@@ -215,7 +222,7 @@ class WallFollower(Node):
 
 
 def main(args=None):
-    print("Wall Follower Node Started 19")
+    #print("Wall Follower Node Started 19")
     rclpy.init(args=args)
     
     wall_follower = WallFollower()

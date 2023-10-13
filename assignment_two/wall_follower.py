@@ -120,14 +120,13 @@ class WallFollower(Node):
 
 
     def change_state(self, state):
-        if state != self.state_:
-            self.get_logger().info(f'State of Bot - [{state}] - {self.state_dict_[state]}')
-            self.state_ = state
-        
+        self.get_logger().info(f'State of Bot - [{state}] - {self.state_dict_[state]}')
+        self.state_ = state
+    
 
     def bug_action(self):
-        wall_threshold = 0.4
-        min_threshold = 0.3
+        wall_threshold = 0.5
+        min_threshold = 0.4
         
         if self.section['front'] < min_threshold:
             if self.section['left'] < self.section['right']:
@@ -184,49 +183,17 @@ class WallFollower(Node):
         dy = self.curr_pos.y - self.init_pos.y
         return np.sqrt(dx**2 + dy**2)
         
-
-    # def take_action(self):
-        
-    #     # Initialize a Twist message
-    #     velocity_msg = Twist()
-        
-    #     # Check if the robot has traveled 5 meters
-    #     if self.init_pos is not None and self.get_distance() >= 5:
-    #         # If it has, stop moving
-    #         velocity_msg.linear.x = 0.0
-    #         velocity_msg.angular.z = 0.0
-    #         self.get_logger().info("Traveled 5 meters. Stopping.")
-    #     else:
-    #         # If it hasn't, proceed with the predefined states and actions
-    #         if self.state_ == 0:  # Find wall
-    #             velocity_msg = self.find_wall()
-    #         elif self.state_ == 1:  # Turn right
-    #             velocity_msg = self.turn_right()
-    #         elif self.state_ == 2:  # Move ahead
-    #             velocity_msg = self.move_ahead()
-    #         elif self.state_ == 3:  # Turn left
-    #             velocity_msg = self.turn_left()
-    #         elif self.state_ == 4:  # Move diagonally right
-    #             velocity_msg = self.move_diag_right()
-    #         elif self.state_ == 5:  # Move diagonally left
-    #             velocity_msg = self.move_diag_left()
-    #         else:
-    #             self.get_logger().error('Unknown state!')
-        
-    #     # Publish the velocity message
-    #     self.publisher_.publish(velocity_msg)
-
-######################################################
-############ WITH P CONTROLLER #######################
-######################################################
-
     def take_action(self):
         
+
         # Initialize a Twist message
         velocity_msg = Twist()
-        
+
+        # Set the distance to travel
+        DISTANCE_TO_TRAVEL = 5
+                
         # Check if the robot has traveled 5 meters
-        if self.init_pos is not None and self.get_distance() >= 5:
+        if self.init_pos is not None and self.get_distance() >= DISTANCE_TO_TRAVEL:
             # If it has, stop moving
             velocity_msg.linear.x = 0.0
             velocity_msg.angular.z = 0.0
@@ -265,7 +232,7 @@ class WallFollower(Node):
 
 
     def wall_following_P_controller(self, desired_distance, actual_distance):
-        Kp = 0.03  # Proportional gain. You will need to tune this value.
+        Kp = 0.01  # Proportional gain. You will need to tune this value.
         error = desired_distance - actual_distance  # Error between desired and actual distance
         
         # Control signal
@@ -273,9 +240,7 @@ class WallFollower(Node):
         
         return control_signal
 
-##########################################################################
-########### P CONTROLLER END #############################################
-##########################################################################
+
     # State machine actions
     def find_wall(self):
         
